@@ -58,15 +58,42 @@ pred init(t: Time) {
 
 pred addUser(u: BobUser, t, t': Time) {
 	let usrs = RegisteredUsers.users {
+		#(usrs.t) < 2
 		! (u in usrs.t)
-		u.type.t
 	  usrs.t' = usrs.t + u
+		u.type.t' = u.type.t
 		
+		all usr: usrs.t | usr.type.t' = usr.type.t
+		ActiveFiles.files.t' = ActiveFiles.files.t
 	}
 
 }
 
-pred removeUser(u: BobUser) {}
+pred removeUser(u: BobUser, t,t': Time) {
+	let usrs = RegisteredUsers.users {
+		u in usrs.t
+	  usrs.t' = usrs.t - u
+		u.type.t' = u.type.t
+		
+		all usr: usrs.t' | usr.type.t' = usr.type.t
+		ActiveFiles.files.t' = ActiveFiles.files.t
+	}
+}
+
+//DOES NOT WORK
+pred upgradePremium(u: BobUser, t,t': Time) {
+	let usrs = RegisteredUsers.users {
+		u in usrs.t
+		u.type.t = BASIC
+		u.type.t' = PREMIUM
+
+		usrs.t' - u = usrs.t - u
+		u in usrs.t'
+		all usr: usrs.t' | usr.type.t' = usr.type.t
+		ActiveFiles.files.t' = ActiveFiles.files.t
+	}
+}
+
 
 assert differentUser {
 	all x,y: RegisteredUsers.users.Time | x != y => (x.id != y.id) and (x.email != y.email)
@@ -76,10 +103,12 @@ fact traces {
 	init[first]
 	all t: Time-last | let t'=t.next |
 		some u: BobUser|
-			addUser[u, t, t']
+			addUser[u, t, t'] or
+			//removeUser[u, t, t'] or
+			upgradePremium[u, t, t']
 }
 
 pred show {}
 
 //check differentUser
-run show for 5 but 0 BobFile
+run show for 4 but 0 BobFile
