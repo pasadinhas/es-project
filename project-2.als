@@ -15,7 +15,7 @@ enum MODES {REGULAR, SECURE, READONLY}
 //===========================================================
 sig Name {}
 
-sig BobUser extends USERS{
+sig BobUser extends USERS {
 	id: one Name,
 	email: one UEMAILS,
 	type: UTYPES one->Time,	
@@ -41,8 +41,8 @@ sig BobFile {
 fact ownerIsRegistered {all f: BobFile | f.owner in RegisteredUsers.users.Time}
 fact filesAreUnique {all f1,f2: BobFile | f1 != f2 => f1.id != f2.id}
 fact ownerHasAccess {all f: BobFile | f.owner in f.access.Time}
-fact onlyRegisteredHaveAccess {all f: BobFile, t: Time | all u: f.access.t | u in RegisteredUsers.users.t}
-fact secureOnlyIfAllPremium {all f: BobFile, t:Time | f.mode.t = SECURE => all u: f.access.t | u.type.t = PREMIUM}
+//fact onlyRegisteredHaveAccess {all f: BobFile, t: Time | all u: f.access.t | u in RegisteredUsers.users.t}
+//fact secureOnlyIfAllPremium {all f: BobFile, t:Time | f.mode.t = SECURE => all u: f.access.t | u.type.t = PREMIUM}
 
 one sig ActiveFiles {files: BobFile->Time}
 
@@ -58,42 +58,88 @@ pred init(t: Time) {
 
 pred addUser(u: BobUser, t, t': Time) {
 	let usrs = RegisteredUsers.users {
-		#(usrs.t) < 2
+		#(usrs.t) < 2 //DEBUG
 		! (u in usrs.t)
-	  usrs.t' = usrs.t + u
+	  	usrs.t' = usrs.t + u
 		u.type.t' = u.type.t
 		
 		all usr: usrs.t | usr.type.t' = usr.type.t
 		ActiveFiles.files.t' = ActiveFiles.files.t
 	}
-
+	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
 }
 
 pred removeUser(u: BobUser, t,t': Time) {
 	let usrs = RegisteredUsers.users {
 		u in usrs.t
-	  usrs.t' = usrs.t - u
+	  	usrs.t' = usrs.t - u
 		u.type.t' = u.type.t
 		
 		all usr: usrs.t' | usr.type.t' = usr.type.t
 		ActiveFiles.files.t' = ActiveFiles.files.t
 	}
+	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
 }
 
-//DOES NOT WORK
 pred upgradePremium(u: BobUser, t,t': Time) {
+	u.type.t = BASIC
 	let usrs = RegisteredUsers.users {
 		u in usrs.t
-		u.type.t = BASIC
 		u.type.t' = PREMIUM
-
-		usrs.t' - u = usrs.t - u
+		usrs.t - u = usrs.t' - u
 		u in usrs.t'
-		all usr: usrs.t' | usr.type.t' = usr.type.t
+		all usr: usrs.t' | usr != u => usr.type.t' = usr.type.t
 		ActiveFiles.files.t' = ActiveFiles.files.t
 	}
+	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
 }
 
+pred downgradeBasic(u: BobUser, t,t': Time) {
+	u.type.t = PREMIUM
+	let usrs = RegisteredUsers.users {
+		u in usrs.t
+		u.type.t' = BASIC
+		usrs.t - u = usrs.t' - u
+		u in usrs.t'
+		all usr: usrs.t' | usr != u => usr.type.t' = usr.type.t
+		ActiveFiles.files.t' = ActiveFiles.files.t
+	}
+	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
+}
+
+pred addFile(f: BobFile, t,t': Time) {
+	#(ActiveFiles.files.t) < 2 //DEBUG
+	! (f in ActiveFiles.files.t)
+	ActiveFiles.files.t' = ActiveFiles.files.t + f
+	f.version.t' = first
+	f.mode.t' = f.mode.t
+	f.access.t' = f.owner
+	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
+	RegisteredUsers.users.t' = RegisteredUsers.users.t
+	all usr: RegisteredUsers.users.t' | usr.type.t' = usr.type.t
+}
+
+pred removeFile(f: BobFile, u: BobUser, t,t': Time) {
+	u in RegisteredUsers.users.t
+	f in ActiveFiles.files.t
+	u in f.access.t
+	ActiveFiles.files.t' = ActiveFiles.files.t - f
+	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
+	RegisteredUsers.users.t' = RegisteredUsers.users.t
+	all usr: RegisteredUsers.users.t' | usr.type.t' = usr.type.t
+}
+
+pred uploadFile(f: BobFile, u: BobUser, t,t': Time) {
+	u in RegisteredUsers.users.t
+	f in ActiveFiles.files.t
+	u in f.access.t
+	ActiveFiles.files.t - f = ActiveFiles.files.t' - f
+	f.version.t' = f.version.t.next
+	f in ActiveFiles.files.t'
+	all file: ActiveFiles.files.t | file != f => file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
+	RegisteredUsers.users.t' = RegisteredUsers.users.t
+	all usr: RegisteredUsers.users.t' | usr.type.t' = usr.type.t
+}
 
 assert differentUser {
 	all x,y: RegisteredUsers.users.Time | x != y => (x.id != y.id) and (x.email != y.email)
@@ -102,13 +148,17 @@ assert differentUser {
 fact traces {
 	init[first]
 	all t: Time-last | let t'=t.next |
-		some u: BobUser|
+		some u: BobUser, f: BobFile |
 			addUser[u, t, t'] or
 			//removeUser[u, t, t'] or
-			upgradePremium[u, t, t']
+			//upgradePremium[u, t, t'] or
+			//downgradeBasic[u, t, t'] or
+			addFile[f, t, t'] or
+			//removeFile[f, u, t, t'] or
+			uploadFile[f, u, t, t']
 }
 
 pred show {}
 
 //check differentUser
-run show for 4 but 0 BobFile
+run show for 6 but 2 Version
