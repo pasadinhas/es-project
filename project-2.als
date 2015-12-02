@@ -26,12 +26,12 @@ fact uniqueEmail {all x,y : BobUser | x.email = y.email => x = y}
 
 one sig RegisteredUsers {users: BobUser->Time}
 
-sig Space {}
+sig Size {}
 sig Version {}
 
 sig BobFile {
 	id: one FILES,
-	space: one Space,
+	size: one Size,
 	owner: one BobUser,
 	mode: MODES one -> Time,
 	version: Version one -> Time,
@@ -49,6 +49,18 @@ one sig ActiveFiles {files: BobFile->Time}
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 //!                Behavior                !
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+pred noChangeInRegisteredUsers (t,t':Time) {
+	RegisteredUsers.users.t' = RegisteredUsers.users.t
+}
+
+pred noChangeInUserTypes (t,t':Time) {
+	all usr: RegisteredUsers.users.t' | usr.type.t' = usr.type.t
+}
+
+pred noChangeInFiles (t,t': Time) {
+	ActiveFiles.files.t = ActiveFiles.files.t'
+	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t = file.access.t'
+}
 
 pred init(t: Time) {
 	no RegisteredUsers.users.t
@@ -64,7 +76,6 @@ pred addUser(u: BobUser, t, t': Time) {
 		u.type.t' = u.type.t
 		
 		all usr: usrs.t | usr.type.t' = usr.type.t
-		ActiveFiles.files.t' = ActiveFiles.files.t
 	}
 	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
 }
@@ -76,9 +87,8 @@ pred removeUser(u: BobUser, t,t': Time) {
 		u.type.t' = u.type.t
 		
 		all usr: usrs.t' | usr.type.t' = usr.type.t
-		ActiveFiles.files.t' = ActiveFiles.files.t
 	}
-	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
+  noChangeInFiles[t, t']
 }
 
 pred upgradePremium(u: BobUser, t,t': Time) {
@@ -89,9 +99,8 @@ pred upgradePremium(u: BobUser, t,t': Time) {
 		usrs.t - u = usrs.t' - u
 		u in usrs.t'
 		all usr: usrs.t' | usr != u => usr.type.t' = usr.type.t
-		ActiveFiles.files.t' = ActiveFiles.files.t
 	}
-	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
+  noChangeInFiles[t, t']
 }
 
 pred downgradeBasic(u: BobUser, t,t': Time) {
@@ -102,21 +111,24 @@ pred downgradeBasic(u: BobUser, t,t': Time) {
 		usrs.t - u = usrs.t' - u
 		u in usrs.t'
 		all usr: usrs.t' | usr != u => usr.type.t' = usr.type.t
-		ActiveFiles.files.t' = ActiveFiles.files.t
 	}
-	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
+  noChangeInFiles[t, t']
 }
 
-pred addFile(f: BobFile, t,t': Time) {
+
+pred addFile(f: BobFile, o: BobUser, s: Size, t,t': Time) {
 	#(ActiveFiles.files.t) < 2 //DEBUG
 	! (f in ActiveFiles.files.t)
+	o in RegisteredUsers.users.t
 	ActiveFiles.files.t' = ActiveFiles.files.t + f
 	f.version.t' = first
+	f.size = s
 	f.mode.t' = f.mode.t
+	f.owner = o
 	f.access.t' = f.owner
 	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
-	RegisteredUsers.users.t' = RegisteredUsers.users.t
-	all usr: RegisteredUsers.users.t' | usr.type.t' = usr.type.t
+	noChangeInRegisteredUsers[t, t']
+  noChangeInUserTypes [t, t']
 }
 
 pred removeFile(f: BobFile, u: BobUser, t,t': Time) {
@@ -124,9 +136,10 @@ pred removeFile(f: BobFile, u: BobUser, t,t': Time) {
 	f in ActiveFiles.files.t
 	u in f.access.t
 	ActiveFiles.files.t' = ActiveFiles.files.t - f
-	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
-	RegisteredUsers.users.t' = RegisteredUsers.users.t
-	all usr: RegisteredUsers.users.t' | usr.type.t' = usr.type.t
+
+	all file: ActiveFiles.files.t' | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
+	noChangeInRegisteredUsers[t, t']
+	noChangeInUserTypes [t, t']
 }
 
 pred uploadFile(f: BobFile, u: BobUser, t,t': Time) {
@@ -135,10 +148,26 @@ pred uploadFile(f: BobFile, u: BobUser, t,t': Time) {
 	u in f.access.t
 	ActiveFiles.files.t - f = ActiveFiles.files.t' - f
 	f.version.t' = f.version.t.next
+	f.access.t = f.access.t'
 	f in ActiveFiles.files.t'
+
 	all file: ActiveFiles.files.t | file != f => file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
-	RegisteredUsers.users.t' = RegisteredUsers.users.t
-	all usr: RegisteredUsers.users.t' | usr.type.t' = usr.type.t
+	noChangeInRegisteredUsers[t, t']
+	noChangeInUserTypes [t, t']
+}
+
+pred downloadFile(f: BobFile, u: BobUser, t,t': Time) {
+	u in RegisteredUsers.users.t
+	f in ActiveFiles.files.t
+	u in f.access.t
+	ActiveFiles.files.t = ActiveFiles.files.t'
+	f.version.t' = f.version.t
+	f.access.t = f.access.t'
+	f in ActiveFiles.files.t'
+
+	all file: ActiveFiles.files.t | file != f => file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
+	noChangeInRegisteredUsers[t, t']
+	noChangeInUserTypes [t, t']
 }
 
 assert differentUser {
@@ -148,13 +177,13 @@ assert differentUser {
 fact traces {
 	init[first]
 	all t: Time-last | let t'=t.next |
-		some u: BobUser, f: BobFile |
+		some u: BobUser, f: BobFile, s: Size |
 			addUser[u, t, t'] or
-			//removeUser[u, t, t'] or
-			//upgradePremium[u, t, t'] or
-			//downgradeBasic[u, t, t'] or
-			addFile[f, t, t'] or
-			//removeFile[f, u, t, t'] or
+			removeUser[u, t, t'] or
+			upgradePremium[u, t, t'] or
+			downgradeBasic[u, t, t'] or
+			addFile[f, u, s, t, t'] or
+			removeFile[f, u, t, t'] or
 			uploadFile[f, u, t, t']
 }
 
