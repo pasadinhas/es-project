@@ -1,5 +1,4 @@
 open util/ordering[Time] as TO
-open util/ordering[Version] as VO
 
 sig Time{}
 
@@ -18,7 +17,8 @@ sig Name {}
 sig BobUser extends USERS {
 	id: one Name,
 	email: one UEMAILS,
-	type: UTYPES one->Time,	
+	type: UTYPES one->Time,
+	files: BobFile set-> Int,
 }
 
 fact uniqueID {all x,y : BobUser | x.id = y.id => x = y}
@@ -27,14 +27,13 @@ fact uniqueEmail {all x,y : BobUser | x.email = y.email => x = y}
 one sig RegisteredUsers {users: BobUser->Time}
 
 sig Size {}
-sig Version {}
 
 sig BobFile {
 	id: one FILES,
 	size: one Size,
 	owner: one BobUser,
 	mode: MODES one -> Time,
-	version: Version one -> Time,
+	version:  Int one-> Time,
 	access: BobUser some -> Time,
 }
 
@@ -74,10 +73,9 @@ pred addUser(u: BobUser, t, t': Time) {
 		! (u in usrs.t)
 	  	usrs.t' = usrs.t + u
 		u.type.t' = u.type.t
-		
-		all usr: usrs.t | usr.type.t' = usr.type.t
 	}
-	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
+	noChangeInUserTypes[t, t']
+	noChangeInFiles[t, t']
 }
 
 pred removeUser(u: BobUser, t,t': Time) {
@@ -85,10 +83,9 @@ pred removeUser(u: BobUser, t,t': Time) {
 		u in usrs.t
 	  	usrs.t' = usrs.t - u
 		u.type.t' = u.type.t
-		
-		all usr: usrs.t' | usr.type.t' = usr.type.t
 	}
-  noChangeInFiles[t, t']
+	noChangeInUserTypes[t, t']	
+ 	noChangeInFiles[t, t']
 }
 
 pred upgradePremium(u: BobUser, t,t': Time) {
@@ -121,14 +118,15 @@ pred addFile(f: BobFile, o: BobUser, s: Size, t,t': Time) {
 	! (f in ActiveFiles.files.t)
 	o in RegisteredUsers.users.t
 	ActiveFiles.files.t' = ActiveFiles.files.t + f
-	f.version.t' = first
+	o.files = o.files + (f -> 1)
+	f.version.t' = 1
 	f.size = s
 	f.mode.t' = f.mode.t
 	f.owner = o
 	f.access.t' = f.owner
 	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
 	noChangeInRegisteredUsers[t, t']
-  noChangeInUserTypes [t, t']
+  	noChangeInUserTypes [t, t']
 }
 
 pred removeFile(f: BobFile, u: BobUser, t,t': Time) {
@@ -147,7 +145,7 @@ pred uploadFile(f: BobFile, u: BobUser, t,t': Time) {
 	f in ActiveFiles.files.t
 	u in f.access.t
 	ActiveFiles.files.t - f = ActiveFiles.files.t' - f
-	f.version.t' = f.version.t.next
+	f.version.t' = u.files[f]
 	f.access.t = f.access.t'
 	f in ActiveFiles.files.t'
 
@@ -179,15 +177,15 @@ fact traces {
 	all t: Time-last | let t'=t.next |
 		some u: BobUser, f: BobFile, s: Size |
 			addUser[u, t, t'] or
-			removeUser[u, t, t'] or
-			upgradePremium[u, t, t'] or
-			downgradeBasic[u, t, t'] or
+			//removeUser[u, t, t'] or
+			//upgradePremium[u, t, t'] or
+			//downgradeBasic[u, t, t'] or
 			addFile[f, u, s, t, t'] or
-			removeFile[f, u, t, t'] or
+			//removeFile[f, u, t, t']
 			uploadFile[f, u, t, t']
 }
 
 pred show {}
 
 //check differentUser
-run show for 6 but 2 Version
+run show for 5 but 1 FILES, 1 BobUser
