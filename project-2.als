@@ -271,7 +271,7 @@ assert everyUserHasTypeAndEmail {
 }
 
 assert uniqueEmails {
-	all u1, u2: RegisteredUsers.users.Time | u1.email = u2.email => u1 = u2
+	all t: Time, u1, u2: RegisteredUsers.users.t | u1.email = u2.email => u1 = u2
 }
 
 assert noUsersAtInit {
@@ -361,7 +361,7 @@ assert noSharedAtInit {
 }
 
 assert notRemoveUsersInSharing {
-	all t: Time, f: BobFile, u: BobUser | let t' = t.next | u in f.access.t => !removeUser[u,t,t']
+	all t: Time, f: ActiveFiles.files.t, u: BobUser | let t' = t.next | u in f.access.t => !removeUser[u,t,t']
 }
 
 assert filesModifiedByUsersWithAccess {
@@ -390,7 +390,7 @@ assert secureOnlyIfAllPremium {
 }
 
 assert secureSharersCannotDowngrade {
-	all t: Time, u: BobUser, f: BobFile | u in f.access.t and f.mode.t = SECURE => !downgradeBasic[u, t, t.next]
+	all t: Time, u: BobUser, f: ActiveFiles.files.t | u in f.access.t and f.mode.t = SECURE => !downgradeBasic[u, t, t.next]
 }
 
 assert defaultSharingIsBasic {
@@ -436,5 +436,80 @@ fact traces {
 
 pred show {}
 
-check changeToSecureOnlyIfAllPremium for 6
-run show for 8 but 2 BobFile, 2 BobUser, 10 Int
+check everyUserCanRegister for 10
+
+check everyUserHasTypeAndEmail for 10
+
+check uniqueEmails for 10
+
+check noUsersAtInit for 10
+
+check alwaysNewUser for 10
+
+check onlyRegisteredCanBeRemoved for 10
+
+check onlyRegisteredCanBeUpgraded for 10
+
+check onlyRegisteredCanBeDowngraded for 10
+
+check onlyBasicCanBeUpgraded for 10
+
+check onlyPremiumCanBeDowngraded for 10
+
+check filesHaveProperties for 10
+
+check sameSpace for 10
+
+check trackActiveFilesProperties for 10
+
+check noFilesAtInit for 10
+
+check notRemoveOwners for 10
+
+check notAddAlreadyExistingFiles for 10
+
+check ownerIsRegistered for 10
+
+check initialVersionIsOne for 10
+
+check onlyExistingMayBeChanged for 10
+
+check uploadIncreasesVersion for 10
+
+check filesCanBeShared for 10
+
+check onlyShareWithRegistered for 10
+
+check ownerHasAccess for 10
+
+check noSharedAtInit for 10
+
+check notRemoveUsersInSharing for 10
+
+check filesModifiedByUsersWithAccess for 10
+
+check userWithAccessMayShare for 10
+
+check notRepeatingShares for 10
+
+check notRevokeAccessToOwner for 10
+
+check validSharingMode for 10
+
+check secureOnlyIfAllPremium for 10
+
+check secureSharersCannotDowngrade for 10
+
+check defaultSharingIsBasic for 10
+
+check readOnlyRemovedByOwner for 10
+
+check readOnlyUploadedByOwner for 10
+
+check onlyOwnerChangesSharingMode for 10
+
+check changeToSecureOnlyIfAllPremium for 10
+
+check onlyActiveAreVersioned for 10
+
+run show for 6
