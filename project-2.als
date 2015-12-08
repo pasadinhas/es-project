@@ -279,11 +279,11 @@ assert noUsersAtInit {
 }
 
 assert alwaysNewUser {
-	all t: Time, u: USERS | let t' = t.next | newUser[u, t, t'] => !(u in RegisteredUsers.users.t)
+	all t: Time, u: USERS | let t' = t.next | u in RegisteredUsers.users.t => !newUser[u, t, t']
 }
 
 assert onlyRegisteredCanBeRemoved {
-	all t: Time, u: BobUser | let t' = t.next | removeUser[u,t,t'] => u in RegisteredUsers.users.t and !(u in RegisteredUsers.users.t')
+	all t: Time, u: BobUser | let t' = t.next | removeUser[u,t,t'] => u in RegisteredUsers.users.t
 }
 
 assert onlyRegisteredCanBeUpgraded {
@@ -295,18 +295,18 @@ assert onlyRegisteredCanBeDowngraded {
 }
 
 assert onlyBasicCanBeUpgraded {
-	all t: Time, u: RegisteredUsers.users.t | let t' = t.next | u.type.t = BASIC and upgradePremium[u, t, t'] => u.type.t' = PREMIUM
+	all t: Time, u: RegisteredUsers.users.t | let t' = t.next |  upgradePremium[u, t, t'] =>u.type.t = BASIC
 }
 
 assert onlyPremiumCanBeDowngraded {
-	all t: Time, u: RegisteredUsers.users.t | let t' = t.next | u.type.t = PREMIUM and downgradeBasic[u, t, t'] => u.type.t' = BASIC
+	all t: Time, u: RegisteredUsers.users.t | let t' = t.next | downgradeBasic[u, t, t'] => u.type.t = PREMIUM
 }
 
+//Restriction 10
 assert filesHaveProperties {
 	all t: Time, f: ActiveFiles.files.t | #f.owner = 1 and #f.size = 1 and #f.version.t = 1
 }
 
-//Restriction 10
 assert sameSpace {
 	all f: ActiveFiles.files.Time | #f.size = 1
 }
@@ -320,7 +320,7 @@ assert noFilesAtInit {
 }
 
 assert notRemoveOwners {
-	all t: Time, u: RegisteredUsers.users.t | let t' = t.next | all f: ActiveFiles.files.t | f.owner = u => !removeUser[u,t,t']
+	all t: Time, u: RegisteredUsers.users.t, f: ActiveFiles.files.t | let t' = t.next | f.owner = u => !removeUser[u,t,t']
 }
 
 assert notAddAlreadyExistingFiles {
@@ -373,11 +373,11 @@ assert userWithAccessMayShare {
 }
 
 assert notRepeatingShares {
-	all t: Time, f: BobFile, u1, u2: BobUser | let t' = t.next | shareFile[f, u1, u2, t, t'] => !(u2 in f.access.t)
+	all t: Time, f: BobFile, u1, u2: BobUser | let t' = t.next | u2 in f.access.t => !shareFile[f, u1, u2, t, t']
 }
 
 assert notRevokeAccessToOwner {
-	all t: Time, f: BobFile, u1, u2: BobUser | let t' = t.next | f.owner = u2 => !removeShare[f, u1, u2, t, t']
+	all t: Time, f: BobFile, u: BobUser | let t' = t.next | f.owner = u => !removeShare[f, BobUser, u, t, t']
 }
 
 assert validSharingMode {
@@ -436,5 +436,5 @@ fact traces {
 
 pred show {}
 
-//check trackActiveFilesProperties for 6
+check changeToSecureOnlyIfAllPremium for 6
 run show for 8 but 2 BobFile, 2 BobUser, 10 Int
