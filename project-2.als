@@ -340,7 +340,7 @@ assert onlyExistingMayBeChanged {
 }
 
 assert uploadIncreasesVersion {
-	all t: Time, f: BobFile | let t' = t.next | uploadFile[f, BobUser, t,t'] => f.version.t' = add[f.version.t, 1]
+	all t: Time, f: ActiveFiles.files.t | let t' = t.next | uploadFile[f, BobUser, t,t'] => f.version.t' = add[f.version.t, 1]
 }
 
 //Restriction 20
@@ -349,7 +349,7 @@ assert filesCanBeShared {
 }
 
 assert onlyShareWithRegistered {
-	all t: Time, f: BobFile, u: BobUser | let t' = t.next | shareFile[f, f.access.t, u, t, t'] => u in RegisteredUsers.users.t
+	all t: Time, f: ActiveFiles.files.t, u: BobUser | let t' = t.next | shareFile[f, f.access.t, u, t, t'] => u in RegisteredUsers.users.t
 }
 
 assert ownerHasAccess {
@@ -365,15 +365,15 @@ assert notRemoveUsersInSharing {
 }
 
 assert filesModifiedByUsersWithAccess {
-	all t: Time, f: BobFile, u: BobUser | let t' = t.next | removeFile[f, u, t, t'] or uploadFile[f, u, t, t'] or downloadFile[f, u, t, t'] => u in f.access.t
+	all t: Time, f: ActiveFiles.files.t, u: BobUser | let t' = t.next | removeFile[f, u, t, t'] or uploadFile[f, u, t, t'] or downloadFile[f, u, t, t'] => u in f.access.t
 }
 
 assert userWithAccessMayShare {
-	all t: Time, f: BobFile, u: BobUser | let t' = t.next | shareFile[f, u, BobUser, t, t'] => u in f.access.t
+	all t: Time, f: ActiveFiles.files.t, u: BobUser | let t' = t.next | shareFile[f, u, BobUser, t, t'] => u in f.access.t
 }
 
 assert notRepeatingShares {
-	all t: Time, f: BobFile, u1, u2: BobUser | let t' = t.next | u2 in f.access.t => !shareFile[f, u1, u2, t, t']
+	all t: Time, f: ActiveFiles.files.t, u1, u2: BobUser | let t' = t.next | u2 in f.access.t => !shareFile[f, u1, u2, t, t']
 }
 
 assert notRevokeAccessToOwner {
@@ -386,7 +386,7 @@ assert validSharingMode {
 
 //Restriction 30
 assert secureOnlyIfAllPremium {
-	all t: Time, f: BobFile, u: BobUser | shareFile[f, f.access.t, u, t, t.next] and f.mode.t = SECURE => u.type.t = PREMIUM
+	all t: Time, f: ActiveFiles.files.t, u: BobUser | shareFile[f, f.access.t, u, t, t.next] and f.mode.t = SECURE => u.type.t = PREMIUM
 }
 
 assert secureSharersCannotDowngrade {
@@ -398,19 +398,19 @@ assert defaultSharingIsBasic {
 }
 
 assert readOnlyRemovedByOwner {
-	all t: Time, f: BobFile, u: BobUser | f.mode.t = READONLY and removeFile[f, u, t, t.next] => u = f.owner
+	all t: Time, f: ActiveFiles.files.t, u: BobUser | f.mode.t = READONLY and removeFile[f, u, t, t.next] => u = f.owner
 }
 
 assert readOnlyUploadedByOwner {
-	all t: Time, f: BobFile, u: BobUser | f.mode.t = READONLY and u != f.owner => !uploadFile[f, u, t, t.next]
+	all t: Time, f: ActiveFiles.files.t, u: BobUser | f.mode.t = READONLY and u != f.owner => !uploadFile[f, u, t, t.next]
 }
 
 assert onlyOwnerChangesSharingMode {
-	all t:Time, f: BobFile, u: BobUser | u != f. owner => !changeSharingMode[f, u, MODES, t, t.next]
+	all t:Time, f: ActiveFiles.files.t, u: BobUser | u != f. owner => !changeSharingMode[f, u, MODES, t, t.next]
 }
 
 assert changeToSecureOnlyIfAllPremium {
-	all t: Time, f: BobFile | changeSharingMode[f, f.owner, SECURE, t, t.next] => all u: f.access.t | u.type.t = PREMIUM
+	all t: Time, f: ActiveFiles.files.t | changeSharingMode[f, f.owner, SECURE, t, t.next] => all u: f.access.t | u.type.t = PREMIUM
 }
 
 assert onlyActiveAreVersioned {
