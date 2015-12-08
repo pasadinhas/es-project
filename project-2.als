@@ -152,7 +152,7 @@ pred removeFile(f: BobFile, u: BobUser, t,t': Time) {
 	f.mode.t = READONLY => u = f.owner //R33
 	
 	no f.access.t'
-	no f.version.t'
+	no f.version.t' //R37
 
 	all file: ActiveFiles.files.t' | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
 	all file: BobFile | !(file in ActiveFiles.files.t') => no file.version. t and no file.version.t'
