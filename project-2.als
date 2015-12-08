@@ -7,16 +7,16 @@ sig USERS {}
 enum UTYPES {BASIC, PREMIUM}
 sig UEMAILS {}
 sig FILES {}
-enum MODES {REGULAR, SECURE, READONLY}
+enum MODES {REGULAR, SECURE, READONLY} //R29
 
 //===========================================================
 //==================== OUR WONDER THINGS ====================
 //===========================================================
 sig Name {}
 
-sig BobUser extends USERS {
-	id: one Name,
-	email: one UEMAILS,
+sig BobUser extends USERS { //R1
+	id: one Name, //R2
+	email: one UEMAILS, //R3
 	type: UTYPES one->Time,
 	localFiles: BobFile set -> Time,
 }
@@ -25,16 +25,16 @@ one sig RegisteredUsers {users: BobUser->Time}
 
 sig BobFile {
 	id: one FILES,
-	size: one Int,
-	owner: one BobUser,
-	mode: MODES lone -> Time,
-	version:  Int lone-> Time,
-	access: BobUser set -> Time,
+	size: one Int, //R10 R11
+	owner: one BobUser, //R10
+	mode: MODES lone -> Time, 
+	version:  Int lone-> Time, //R10 R12 (no version recorded if removed)
+	access: BobUser set -> Time, //R20
 }
 
 fact {all f:BobFile| f.size >= 0}
 
-one sig ActiveFiles {files: BobFile->Time}
+one sig ActiveFiles {files: BobFile->Time} //R12
 
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 //!      Behavior control           !
@@ -54,7 +54,7 @@ pred noChangeInLocalFiles (t,t':Time) {
 pred noChangeInFiles (t,t': Time) {
 	ActiveFiles.files.t = ActiveFiles.files.t'
 	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
-	all file: BobFile | !(file in ActiveFiles.files.t) => no file.version.t and no file.version.t'
+	all file: BobFile | !(file in ActiveFiles.files.t) => no file.version.t and no file.version.t' //37
 }
 
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -62,10 +62,10 @@ pred noChangeInFiles (t,t': Time) {
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 pred init(t: Time) {
-	no RegisteredUsers.users.t
-	no ActiveFiles.files.t
-	all f: BobFile | f.mode.t = REGULAR and no f.access.t and no f.version.t
-	all u: BobUser | no u.localFiles.t
+	no RegisteredUsers.users.t //R4
+	no ActiveFiles.files.t //R13
+	all f: BobFile | f.mode.t = REGULAR and no f.access.t and no f.version.t //R32 R37
+	all u: BobUser | no u.localFiles.t //R23
 }
 
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -74,7 +74,7 @@ pred init(t: Time) {
 
 pred newUser(u: BobUser, t, t': Time) {
 	let usrs = RegisteredUsers.users {
-		! (u in usrs.t)
+		! (u in usrs.t) //R5
 		all usr: usrs.t | usr.email != u.email and usr.id != u.id
 	  	usrs.t' = usrs.t + u
 		u.type.t' = u.type.t
@@ -87,10 +87,10 @@ pred newUser(u: BobUser, t, t': Time) {
 
 pred removeUser(u: BobUser, t,t': Time) {
 	let usrs = RegisteredUsers.users {
-		u in usrs.t
+		u in usrs.t //R6
 	  	usrs.t' = usrs.t - u
 		u.type.t' = u.type.t
-		all f: ActiveFiles.files.t | f.owner != u and !(u in f.access.t)
+		all f: ActiveFiles.files.t | f.owner != u and !(u in f.access.t) //R14
 	}
 	noChangeInUserTypes[t, t']	
  	noChangeInFiles[t, t']
@@ -98,27 +98,27 @@ pred removeUser(u: BobUser, t,t': Time) {
 }
 
 pred upgradePremium(u: BobUser, t,t': Time) {
-	u.type.t = BASIC
+	u.type.t = BASIC //R9
 	let usrs = RegisteredUsers.users {
-		u in usrs.t
+		u in usrs.t //R7
 		u.type.t' = PREMIUM
 		usrs.t - u = usrs.t' - u
 		u in usrs.t'
 		all usr: usrs.t' | usr != u => usr.type.t' = usr.type.t
 	}
 	noChangeInFiles[t, t']
-  	noChangeInLocalFiles[t, t']
+  noChangeInLocalFiles[t, t']
 }
 
 pred downgradeBasic(u: BobUser, t,t': Time) {
-	u.type.t = PREMIUM
+	u.type.t = PREMIUM //R9
 	let usrs = RegisteredUsers.users {
-		u in usrs.t
+		u in usrs.t //R8
 		u.type.t' = BASIC
 		usrs.t - u = usrs.t' - u
 		u in usrs.t'
 		all usr: usrs.t' | usr != u => usr.type.t' = usr.type.t
-		all f: ActiveFiles.files.t | u in f.access.t => f.mode.t != SECURE 
+		all f: ActiveFiles.files.t | u in f.access.t => f.mode.t != SECURE //R31
 	}
   	noChangeInFiles[t, t']
 	noChangeInLocalFiles[t, t']
@@ -126,15 +126,15 @@ pred downgradeBasic(u: BobUser, t,t': Time) {
 
 
 pred addFile(f: BobFile, s: Int, o: BobUser, t,t': Time) {
-	! (f in ActiveFiles.files.t)
-	o in RegisteredUsers.users.t
+	! (f in ActiveFiles.files.t) //R15
+	o in RegisteredUsers.users.t //R16
 
 	f.owner = o
 	f.size = s
 
-	f.version.t' = 1
-	f.mode.t' = REGULAR
-	f.access.t' = f.owner
+	f.version.t' = 1 //R17
+	f.mode.t' = REGULAR //R32
+	f.access.t' = f.owner //R22
 	ActiveFiles.files.t' = ActiveFiles.files.t + f
 
 	all file: ActiveFiles.files.t | file.version.t' = file.version.t and file.mode.t' = file.mode.t and file.access.t' = file.access.t
@@ -146,10 +146,10 @@ pred addFile(f: BobFile, s: Int, o: BobUser, t,t': Time) {
 
 pred removeFile(f: BobFile, u: BobUser, t,t': Time) {
 	u in RegisteredUsers.users.t
-	f in ActiveFiles.files.t
-	u in f.access.t
+	f in ActiveFiles.files.t //R18
+	u in f.access.t //R25
 	ActiveFiles.files.t' = ActiveFiles.files.t - f
-	f.mode.t = READONLY => u = f.owner
+	f.mode.t = READONLY => u = f.owner //R33
 	
 	no f.access.t'
 	no f.version.t'
@@ -163,13 +163,13 @@ pred removeFile(f: BobFile, u: BobUser, t,t': Time) {
 
 pred uploadFile(f: BobFile, u: BobUser, t,t': Time) {
 	u in RegisteredUsers.users.t
-	f in ActiveFiles.files.t
+	f in ActiveFiles.files.t //R18
 	f in u.localFiles.t
-	u in f.access.t
-	f.mode.t = READONLY => u = f.owner
+	u in f.access.t //R25
+	f.mode.t = READONLY => u = f.owner //R34
 
 	ActiveFiles.files.t - f = ActiveFiles.files.t' - f
-	f.version.t' = add[f.version.t, 1]
+	f.version.t' = add[f.version.t, 1] //R19
 	f.access.t' = f.access.t
 	f.mode.t' = f.mode.t
 	f in ActiveFiles.files.t'
@@ -183,8 +183,8 @@ pred uploadFile(f: BobFile, u: BobUser, t,t': Time) {
 
 pred downloadFile(f: BobFile, u: BobUser, t,t': Time) {
 	u in RegisteredUsers.users.t
-	f in ActiveFiles.files.t
-	u in f.access.t
+	f in ActiveFiles.files.t //R18
+	u in f.access.t //R25
 
 	u.localFiles.t' = u.localFiles.t + f
 	f.version.t' = f.version.t
@@ -199,12 +199,12 @@ pred downloadFile(f: BobFile, u: BobUser, t,t': Time) {
 
 pred shareFile(f: BobFile, u, u2: BobUser, t,t': Time) {
 	u in RegisteredUsers.users.t
-	u2 in RegisteredUsers.users.t
+	u2 in RegisteredUsers.users.t //R21
 	f in ActiveFiles.files.t
-	u in f.access.t
-	! (u2 in f.access.t)
+	u in f.access.t //R26
+	! (u2 in f.access.t) //R27
 
-	f.mode.t = SECURE => u2.type.t = PREMIUM
+	f.mode.t = SECURE => u2.type.t = PREMIUM //R29
 
 	f.version.t' = f.version.t
 	f.mode.t' = f.mode.t
@@ -221,11 +221,11 @@ pred shareFile(f: BobFile, u, u2: BobUser, t,t': Time) {
 
 pred removeShare(f: BobFile, u, u2: BobUser, t,t': Time) {
 	u in RegisteredUsers.users.t
-	u2 in RegisteredUsers.users.t
+	u2 in RegisteredUsers.users.t 
 	f in ActiveFiles.files.t
 	u in f.access.t
 	u2 in f.access.t
-	f.owner != u2
+	f.owner != u2 //R28
 
 	f.access.t' = f.access.t - u2
 	f.version.t' = f.version.t
@@ -243,9 +243,9 @@ pred removeShare(f: BobFile, u, u2: BobUser, t,t': Time) {
 pred changeSharingMode(f: BobFile, u: BobUser, m: MODES, t, t': Time) {
 	u in RegisteredUsers.users.t
 	f in ActiveFiles.files.t
-	f.owner = u
+	f.owner = u //R35
 
-	m = SECURE => all u: f.access.t | u.type.t = PREMIUM
+	m = SECURE => all u: f.access.t | u.type.t = PREMIUM //R30 R36
 
 	f.mode.t' = m
 	f.access.t' = f.access.t
@@ -260,8 +260,12 @@ pred changeSharingMode(f: BobFile, u: BobUser, m: MODES, t, t': Time) {
 }
 
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//!           Restrictions             !
+//!           Restrictions                 !
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+//Asserts are ordered from the enforcement of restriction 1 to 37
+
+//Restriction 1
 assert everyUserCanRegister {
 	all t: Time, u: USERS | let t' = t.next | newUser[u,t,t'] => u in RegisteredUsers.users.t'
 }
@@ -278,6 +282,7 @@ assert noUsersAtInit {
 	no RegisteredUsers.users.first
 }
 
+//Restriction 5
 assert alwaysNewUser {
 	all t: Time, u: USERS | let t' = t.next | u in RegisteredUsers.users.t => !newUser[u, t, t']
 }
@@ -294,10 +299,12 @@ assert onlyRegisteredCanBeDowngraded {
 	all t: Time, u: BobUser | let t' = t.next | downgradeBasic[u,t,t'] => u in RegisteredUsers.users.t
 }
 
+//Restriction 9
 assert onlyBasicCanBeUpgraded {
 	all t: Time, u: RegisteredUsers.users.t | let t' = t.next |  upgradePremium[u, t, t'] =>u.type.t = BASIC
 }
 
+//Restriction 9
 assert onlyPremiumCanBeDowngraded {
 	all t: Time, u: RegisteredUsers.users.t | let t' = t.next | downgradeBasic[u, t, t'] => u.type.t = PREMIUM
 }
@@ -323,6 +330,7 @@ assert notRemoveOwners {
 	all t: Time, u: RegisteredUsers.users.t, f: ActiveFiles.files.t | let t' = t.next | f.owner = u => !removeUser[u,t,t']
 }
 
+//Restriction 15
 assert notAddAlreadyExistingFiles {
 	all t: Time, f1, f2: BobFile | let t' = t.next | f1 in ActiveFiles.files.t and f2 = f1 => !addFile[f2, Int, BobUser, t', t]
 }
@@ -364,6 +372,7 @@ assert notRemoveUsersInSharing {
 	all t: Time, f: ActiveFiles.files.t, u: BobUser | let t' = t.next | u in f.access.t => !removeUser[u,t,t']
 }
 
+//Restriction 25
 assert filesModifiedByUsersWithAccess {
 	all t: Time, f: ActiveFiles.files.t, u: BobUser | let t' = t.next | removeFile[f, u, t, t'] or uploadFile[f, u, t, t'] or downloadFile[f, u, t, t'] => u in f.access.t
 }
@@ -393,7 +402,7 @@ assert secureSharersCannotDowngrade {
 	all t: Time, u: BobUser, f: ActiveFiles.files.t | u in f.access.t and f.mode.t = SECURE => !downgradeBasic[u, t, t.next]
 }
 
-assert defaultSharingIsBasic {
+assert defaultSharingIsRegular {
 	all t: Time, f: BobFile | let t' = t.next | addFile[f, Int, BobUser, t, t'] => f.mode.t' = REGULAR
 }
 
@@ -405,6 +414,7 @@ assert readOnlyUploadedByOwner {
 	all t: Time, f: ActiveFiles.files.t, u: BobUser | f.mode.t = READONLY and u != f.owner => !uploadFile[f, u, t, t.next]
 }
 
+//Restriction 35
 assert onlyOwnerChangesSharingMode {
 	all t:Time, f: ActiveFiles.files.t, u: BobUser | u != f. owner => !changeSharingMode[f, u, MODES, t, t.next]
 }
@@ -500,7 +510,7 @@ check secureOnlyIfAllPremium for 10
 
 check secureSharersCannotDowngrade for 10
 
-check defaultSharingIsBasic for 10
+check defaultSharingIsRegular for 10
 
 check readOnlyRemovedByOwner for 10
 
