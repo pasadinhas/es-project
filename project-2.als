@@ -260,7 +260,7 @@ pred changeSharingMode(f: BobFile, u: BobUser, m: MODES, t, t': Time) {
 }
 
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//!           Restrictions                 !
+//!           Restrictions             !
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 //Asserts are ordered from the enforcement of restriction 1 to 37
@@ -444,8 +444,6 @@ fact traces {
 			changeSharingMode[f, u, m, t, t']
 }
 
-pred show {}
-
 check everyUserCanRegister for 10
 
 check everyUserHasTypeAndEmail for 10
@@ -522,4 +520,7 @@ check changeToSecureOnlyIfAllPremium for 10
 
 check onlyActiveAreVersioned for 10
 
+/*Uncoment to run
+pred show {}
 run show for 6
+*/
